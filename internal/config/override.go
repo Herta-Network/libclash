@@ -1,8 +1,11 @@
 package config
 
 import (
-	"io"
+	"encoding/json"
+	"fmt"
 	"os"
+	"strings"
+	"sync"
 
 	"github.com/metacubex/mihomo/constant"
 )
@@ -18,20 +21,18 @@ const defaultPersistOverride = `{}`
 const defaultSessionOverride = `{}`
 
 var sessionOverride = defaultSessionOverride
+var overrideMu sync.RWMutex
 
 func overridePersistPath() string {
 	return constant.Path.Resolve("override.json")
 }
 
 func ReadOverride(slot OverrideSlot) string {
+	overrideMu.RLock()
+	defer overrideMu.RUnlock()
 	switch slot {
 	case OverrideSlotPersist:
-		file, err := os.OpenFile(overridePersistPath(), os.O_RDONLY, 0600)
-		if err != nil {
-			return defaultPersistOverride
-		}
-
-		buf, err := io.ReadAll(file)
+		buf, err := os.ReadFile(overridePersistPath())
 		if err != nil {
 			return defaultPersistOverride
 		}
@@ -44,25 +45,39 @@ func ReadOverride(slot OverrideSlot) string {
 	return ""
 }
 
-func WriteOverride(slot OverrideSlot, content string) {
+func WriteOverride(slot OverrideSlot, content string) error {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(content), &obj); err != nil {
+		return fmt.Errorf("invalid override: %w", err)
+	}
+	if obj == nil {
+		return fmt.Errorf("override must be a JSON object")
+	}
+	overrideMu.Lock()
+	defer overrideMu.Unlock()
 	switch slot {
 	case OverrideSlotPersist:
-		file, err := os.OpenFile(overridePersistPath(), os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0600)
-		if err != nil {
-			return
-		}
-
-		_, err = file.Write([]byte(content))
+		return writeFileAtomically(overridePersistPath(), strings.NewReader(content))
 	case OverrideSlotSession:
 		sessionOverride = content
+		return nil
 	}
+	return fmt.Errorf("invalid override slot: %d", slot)
 }
 
-func ClearOverride(slot OverrideSlot) {
+func ClearOverride(slot OverrideSlot) error {
+	overrideMu.Lock()
+	defer overrideMu.Unlock()
 	switch slot {
 	case OverrideSlotPersist:
-		_ = os.Remove(overridePersistPath())
+		err := os.Remove(overridePersistPath())
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	case OverrideSlotSession:
 		sessionOverride = defaultSessionOverride
+		return nil
 	}
+	return fmt.Errorf("invalid override slot: %d", slot)
 }

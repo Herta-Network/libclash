@@ -1,16 +1,17 @@
 package config
 
 import (
+	"bytes"
 	"os"
 	P "path"
 	"runtime"
 	"strings"
 
 	"github.com/Ember-Moth/libclash/internal/app"
+	"github.com/Ember-Moth/libclash/internal/dns"
 
 	"github.com/metacubex/mihomo/common/yaml"
 	"github.com/metacubex/mihomo/config"
-	"github.com/metacubex/mihomo/hub"
 	"github.com/metacubex/mihomo/log"
 )
 
@@ -30,13 +31,18 @@ func logDns(cfg *config.RawConfig) {
 }
 
 func UnmarshalAndPatch(profilePath string) (*config.RawConfig, error) {
-	configPath := P.Join(profilePath, "config.yaml")
+	return unmarshalAndPatchFile(P.Join(profilePath, "config.yaml"), profilePath)
+}
 
+func unmarshalAndPatchFile(configPath, profilePath string) (*config.RawConfig, error) {
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
+	return unmarshalAndPatchData(configData, profilePath)
+}
 
+func unmarshalAndPatchData(configData []byte, profilePath string) (*config.RawConfig, error) {
 	rawConfig, err := config.UnmarshalRawConfig(configData)
 	if err != nil {
 		return nil, err
@@ -58,8 +64,32 @@ func Parse(rawConfig *config.RawConfig) (*config.Config, error) {
 	return cfg, nil
 }
 
+// Validate releases providers created only for checking a configuration.
+func Validate(rawConfig *config.RawConfig) error {
+	cfg, err := Parse(rawConfig)
+	if err != nil {
+		return err
+	}
+	destroyProviders(cfg)
+	return nil
+}
+
 func Load(path string) error {
-	rawCfg, err := UnmarshalAndPatch(path)
+	return loadFile(path, P.Join(path, "config.yaml"), false)
+}
+
+// LoadFromFile validates a replacement in the destination profile's context
+// before changing its config.yaml or the running configuration.
+func LoadFromFile(path, source string) error {
+	return loadFile(path, source, true)
+}
+
+func loadFile(path, source string, install bool) error {
+	data, err := os.ReadFile(source)
+	if err != nil {
+		return err
+	}
+	rawCfg, err := unmarshalAndPatchData(data, path)
 	if err != nil {
 		log.Errorln("Load %s: %s", path, err.Error())
 
@@ -75,8 +105,15 @@ func Load(path string) error {
 		return err
 	}
 
+	if install {
+		if err := writeFileAtomically(P.Join(path, "config.yaml"), bytes.NewReader(data)); err != nil {
+			destroyProviders(cfg)
+			return err
+		}
+	}
+
 	// like hub.Parse()
-	hub.ApplyConfig(cfg)
+	dns.ApplyConfig(cfg)
 
 	app.ApplySubtitlePattern(rawCfg.ClashForAndroid.UiSubtitlePattern)
 
@@ -91,5 +128,5 @@ func LoadDefault() {
 		panic(err.Error())
 	}
 
-	hub.ApplyConfig(cfg)
+	dns.ApplyConfig(cfg)
 }

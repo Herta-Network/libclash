@@ -115,7 +115,8 @@ void forceGC()
 long setMemoryLimit(long bytes)
 ```
 
-设置 Go runtime 软内存上限，返回旧值。传入 `-1` 可恢复 Go 默认行为。
+设置 Go runtime 软内存上限，返回旧值。传入负数只查询当前值、不修改；
+传入 `Long.MAX_VALUE` 可取消该软上限。
 
 ### setGCPercent
 
@@ -142,11 +143,16 @@ void setContentCallback(ContentCallback callback)
 void notifyDnsChanged(String dnsList)
 ```
 
-通知系统 DNS 变化。`dnsList` 使用英文逗号分隔：
+通知宿主 DNS 变化，在 Android、iOS 和 OpenHarmony 上生效。
+`dnsList` 使用英文逗号分隔，支持 IPv4、IPv6 和带端口的 IP 地址：
 
 ```text
 8.8.8.8,1.1.1.1
 ```
+
+更新系统解析器及配置中的 `system://`（包括 policy、proxy-server 和 direct DNS），
+同时清理旧 DNS 缓存/连接。显式配置的其他 DNS、代理连接和 fake-IP 映射保留。
+空列表恢复核心原有的系统 DNS 发现行为；非法地址记录日志并保留原设置。
 
 ### notifyInstalledAppsChanged
 
@@ -252,7 +258,17 @@ String readOverride(int slot)
 void writeOverride(int slot, String content)
 ```
 
-写入 override JSON。
+写入 override JSON，失败时记录日志。为兼容已有调用方保留此方法；
+需要判断写入是否成功时使用 `writeOverrideChecked`。
+
+### writeOverrideChecked
+
+```java
+String writeOverrideChecked(int slot, String content)
+```
+
+要求 `content` 为 JSON 对象。返回空字符串表示成功，非空字符串为非法 slot、
+JSON 或文件 I/O 错误。持久化写入使用原子替换，失败时保留旧文件。
 
 ### clearOverride
 
@@ -269,6 +285,7 @@ void clearOverride(int slot)
 ```java
 String startTun(
     int fd,
+    int mtu,
     String stack,
     String gateway,
     String portal,
@@ -280,6 +297,7 @@ String startTun(
 启动 TUN listener。
 
 - `fd`：Android VPN TUN fd
+- `mtu`：宿主 TUN 接口实际配置的 MTU；非正数使用兼容默认值 `9000`
 - `stack`：mihomo TUN stack，例如 `system`
 - `gateway`：网关 CIDR，支持逗号分隔 IPv4/IPv6
 - `portal`：保留参数，当前核心逻辑未使用

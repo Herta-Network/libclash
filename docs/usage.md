@@ -7,24 +7,23 @@
 需要安装：
 
 - Go
-- gomobile
+- gomobile 和 gobind
 - Android SDK
 - Android NDK
 - JDK
 
-当前项目的 `go.mod` 记录了 gomobile 需要的 `gobind` tool 依赖。正常情况下只需要运行构建脚本。
-
-如果本机没有 `gomobile`：
+在项目根目录安装与 `go.mod` 中 `golang.org/x/mobile` 相同版本的两个工具：
 
 ```bash
-go install golang.org/x/mobile/cmd/gomobile@latest
+version="$(go list -m -f '{{.Version}}' golang.org/x/mobile)"
+go install "golang.org/x/mobile/cmd/gomobile@$version"
+go install "golang.org/x/mobile/cmd/gobind@$version"
 gomobile init
 ```
 
 ## 构建 AAR
 
 ```bash
-cd /root/mihomo/libclash
 ./scripts/build-android.sh
 ```
 
@@ -122,6 +121,7 @@ Libclash.init(home, versionName, gitVersion, sdkVersion)
 ```
 
 `home` 是 mihomo 的工作目录。配置覆盖文件、运行时状态等会以该目录为基础。
+`init`、`load`、`reset`、启动和停止等生命周期操作应由宿主串行调用。
 
 ## content:// 支持
 
@@ -167,6 +167,8 @@ if (loadError.isNotEmpty()) {
 ```
 
 注意：`fetchAndValid` 和 `load` 是同步调用，Android 侧应放到 IO 线程或协程 `Dispatchers.IO` 中执行。
+下载及校验成功后才会替换 `config.yaml`；HTTP 错误、中断下载和配置校验失败都会保留旧配置。
+同一 profile 的下载/加载应串行执行。
 
 ## TUN 接入
 
@@ -177,6 +179,7 @@ import com.github.embermoth.libclash.TunCallback
 
 val err = Libclash.startTun(
     fd,
+    1500, // 必须与 VpnService.Builder.setMtu(...) 使用的值一致
     "system",
     "172.19.0.1/30",
     "172.19.0.2",
@@ -202,6 +205,16 @@ if (err.isNotEmpty()) {
 ```kotlin
 Libclash.stopTun()
 ```
+
+网络变化时传入宿主获取到的 DNS，建议在首次加载配置前也通知一次：
+
+```kotlin
+Libclash.notifyDnsChanged("1.1.1.1,2606:4700:4700::1111")
+```
+
+Android、iOS 和 OpenHarmony 都使用这套更新逻辑；C ABI 对应 `libclash_update_dns`。
+它会更新系统解析器及配置中的 `system://`，清理旧 DNS 缓存和连接，同时保留代理连接、
+显式配置的 DNS 和 fake-IP 映射。空字符串恢复核心原有的系统 DNS 发现行为。
 
 ## HTTP listener
 
@@ -242,6 +255,7 @@ Libclash.unsubscribeLogcat(id)
 - `load`
 - `startTun`
 - `updateProvider`
+- `writeOverrideChecked`
 
 `startHttp` 比较特殊：
 

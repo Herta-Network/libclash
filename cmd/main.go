@@ -234,8 +234,7 @@ func validateConfigPath(path string) error {
 		return err
 	}
 
-	_, err = config.Parse(rawConfig)
-	return err
+	return config.Validate(rawConfig)
 }
 
 func copyConfigFile(sourcePath string, targetPath string) error {
@@ -282,9 +281,7 @@ func setupConfig(setupJSON string) error {
 		if info, err := os.Stat(configPath); err == nil && info.IsDir() {
 			configPath = filepath.Join(configPath, "config.yaml")
 		}
-		if err := copyConfigFile(configPath, filepath.Join(homeDir, "config.yaml")); err != nil {
-			return err
-		}
+		return config.LoadFromFile(homeDir, configPath)
 	}
 
 	if message := core.Load(homeDir); message != "" {

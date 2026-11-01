@@ -26,6 +26,7 @@ on:
       - "cmd/**"
       - "internal/**"
       - "libclash.go"
+      - "*_test.go"
       - "go.mod"
       - "go.sum"
       - "scripts/**"
@@ -35,6 +36,7 @@ on:
       - "cmd/**"
       - "internal/**"
       - "libclash.go"
+      - "*_test.go"
       - "go.mod"
       - "go.sum"
       - "scripts/**"
@@ -49,6 +51,19 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    name: Go tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Test mobile build configuration
+        run: go test -race -tags 'foss,with_low_memory,no_tailscale,no_fake_tcp' ./...
+      - name: Vet
+        run: go vet -tags 'foss,with_low_memory,no_tailscale,no_fake_tcp' ./...
+
   ios:
     name: iOS c-archive
     # Manual runs honour the checkboxes; push and pull_request build everything.
@@ -111,7 +126,7 @@ jobs:
       # module version so they cannot disagree.
       - name: Install gomobile
         run: |
-          version="${GOMOBILE_VERSION:-latest}"
+          version="${GOMOBILE_VERSION:-$(go list -m -f '{{.Version}}' golang.org/x/mobile)}"
           go install "golang.org/x/mobile/cmd/gomobile@$version"
           go install "golang.org/x/mobile/cmd/gobind@$version"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"

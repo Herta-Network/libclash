@@ -11,6 +11,14 @@ AAR_NAME="${AAR_NAME:-libclash.aar}"
 NDK_DIR="${ANDROID_NDK_HOME:-${NDK_HOME:-}}"
 STRIP_SO="${STRIP_SO:-1}"
 DEFAULT_TARGET="android/arm,android/arm64,android/amd64"
+HOST_TAG="${ANDROID_NDK_HOST_TAG:-}"
+if [[ -z "$HOST_TAG" ]]; then
+  case "$(uname -s)" in
+    Darwin) HOST_TAG=darwin-x86_64 ;;
+    Linux) HOST_TAG=linux-x86_64 ;;
+    *) echo "Set ANDROID_NDK_HOST_TAG for this host" >&2; exit 1 ;;
+  esac
+fi
 
 if [[ -z "$NDK_DIR" ]]; then
   echo "ANDROID_NDK_HOME or NDK_HOME is required" >&2
@@ -32,8 +40,7 @@ AAR_PATH="$(cd "$OUT_DIR" && pwd)/$AAR_NAME"
 
 strip_aar() {
   local aar="$1"
-  local host_tag="${ANDROID_NDK_HOST_TAG:-linux-x86_64}"
-  local strip_tool="${STRIP_TOOL:-"$NDK_DIR/toolchains/llvm/prebuilt/$host_tag/bin/llvm-strip"}"
+  local strip_tool="${STRIP_TOOL:-"$NDK_DIR/toolchains/llvm/prebuilt/$HOST_TAG/bin/llvm-strip"}"
   local work_dir
 
   if [[ ! -x "$strip_tool" ]]; then

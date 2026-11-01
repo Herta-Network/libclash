@@ -6,7 +6,14 @@ OUT_DIR="${OUT_DIR:-"$ROOT_DIR/dist/cshared/android"}"
 API_LEVEL="${ANDROID_API_LEVEL:-21}"
 TAGS="${GO_TAGS:-foss,cmfa,with_low_memory,no_tailscale,no_fake_tcp}"
 NDK_DIR="${ANDROID_NDK_HOME:-${NDK_HOME:-}}"
-HOST_TAG="${ANDROID_NDK_HOST_TAG:-linux-x86_64}"
+HOST_TAG="${ANDROID_NDK_HOST_TAG:-}"
+if [[ -z "$HOST_TAG" ]]; then
+  case "$(uname -s)" in
+    Darwin) HOST_TAG=darwin-x86_64 ;;
+    Linux) HOST_TAG=linux-x86_64 ;;
+    *) echo "Set ANDROID_NDK_HOST_TAG for this host" >&2; exit 1 ;;
+  esac
+fi
 STRIP_SO="${STRIP_SO:-1}"
 LDFLAGS="${GO_LDFLAGS:--s -w -extldflags=-Wl,-z,max-page-size=16384}"
 INSTALL_DIR="${INSTALL_DIR:-}"

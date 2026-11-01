@@ -30,6 +30,10 @@ func openUrl(ctx context.Context, url string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		response.Body.Close()
+		return nil, fmt.Errorf("download failed: HTTP %s", response.Status)
+	}
 
 	return response.Body, nil
 }
@@ -60,21 +64,7 @@ func fetch(url *U.URL, file string) error {
 
 	defer reader.Close()
 
-	_ = os.MkdirAll(P.Dir(file), 0700)
-
-	f, err := os.OpenFile(file, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0600)
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-
-	_, err = io.Copy(f, reader)
-	if err != nil {
-		_ = os.Remove(file)
-	}
-
-	return err
+	return writeFileAtomically(file, reader)
 }
 
 func FetchAndValid(
@@ -84,8 +74,16 @@ func FetchAndValid(
 	reportStatus func(string),
 ) error {
 	configPath := P.Join(path, "config.yaml")
+	candidatePath := configPath
+	if reportStatus == nil {
+		reportStatus = func(string) {}
+	}
 
-	if _, err := os.Stat(configPath); os.IsNotExist(err) || force {
+	_, statErr := os.Stat(configPath)
+	if statErr != nil && !os.IsNotExist(statErr) {
+		return statErr
+	}
+	if os.IsNotExist(statErr) || force {
 		url, err := U.Parse(url)
 		if err != nil {
 			return err
@@ -100,19 +98,35 @@ func FetchAndValid(
 
 		reportStatus(string(bytes))
 
-		if err := fetch(url, configPath); err != nil {
+		if err := os.MkdirAll(path, 0700); err != nil {
+			return err
+		}
+		candidate, err := os.CreateTemp(path, ".config-*.yaml")
+		if err != nil {
+			return err
+		}
+		candidatePath = candidate.Name()
+		defer os.Remove(candidatePath)
+		if err := candidate.Close(); err != nil {
+			return err
+		}
+		if err := fetch(url, candidatePath); err != nil {
 			return err
 		}
 	}
 
 	defer runtime.GC()
 
-	rawCfg, err := UnmarshalAndPatch(path)
+	rawCfg, err := unmarshalAndPatchFile(candidatePath, path)
 	if err != nil {
 		return err
 	}
 
+	var providerErr error
 	forEachProviders(rawCfg, func(index int, total int, name string, provider map[string]any, prefix string) {
+		if providerErr != nil {
+			return
+		}
 		bytes, _ := json.Marshal(&Status{
 			Action:      "FetchProviders",
 			Args:        []string{name},
@@ -142,11 +156,17 @@ func FetchAndValid(
 
 		url, err := U.Parse(us)
 		if err != nil {
+			providerErr = fmt.Errorf("provider %q: %w", name, err)
 			return
 		}
 
-		_ = fetch(url, ps)
+		if err := fetch(url, ps); err != nil {
+			providerErr = fmt.Errorf("provider %q: %w", name, err)
+		}
 	})
+	if providerErr != nil {
+		return providerErr
+	}
 
 	bytes, _ := json.Marshal(&Status{
 		Action:      "Verifying",
@@ -157,12 +177,12 @@ func FetchAndValid(
 
 	reportStatus(string(bytes))
 
-	cfg, err := Parse(rawCfg)
-	if err != nil {
+	if err := Validate(rawCfg); err != nil {
 		return err
 	}
 
-	destroyProviders(cfg)
-
+	if candidatePath != configPath {
+		return os.Rename(candidatePath, configPath)
+	}
 	return nil
 }

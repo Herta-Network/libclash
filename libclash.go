@@ -235,12 +235,21 @@ func ReadOverride(slot int32) string {
 
 // WriteOverride stores JSON override content for a slot.
 func WriteOverride(slot int32, content string) {
-	config.WriteOverride(config.OverrideSlot(slot), content)
+	if message := WriteOverrideChecked(slot, content); message != "" {
+		log.Warnln("Write override: %s", message)
+	}
+}
+
+// WriteOverrideChecked stores an override and reports validation or I/O errors.
+func WriteOverrideChecked(slot int32, content string) string {
+	return errorString(config.WriteOverride(config.OverrideSlot(slot), content))
 }
 
 // ClearOverride removes override content for a slot.
 func ClearOverride(slot int32) {
-	config.ClearOverride(config.OverrideSlot(slot))
+	if err := config.ClearOverride(config.OverrideSlot(slot)); err != nil {
+		log.Warnln("Clear override: %s", err)
+	}
 }
 
 // StartHttp starts the local HTTP listener and returns its bound address, or "" on failure.
