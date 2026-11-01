@@ -34,13 +34,13 @@ AAR 内包含：
 默认 Java 包名：
 
 ```text
-com.github.embermoth.libclash
+com.hertanetwork.libclash
 ```
 
 主入口类：
 
 ```text
-com.github.embermoth.libclash.Libclash
+com.hertanetwork.libclash.Libclash
 ```
 
 ## 目录结构
@@ -81,7 +81,7 @@ docs/api.md                 API 与 JSON 结构说明
 - `ANDROID_NDK_HOME` 或 `NDK_HOME`：NDK 路径，必需
 - `ANDROID_API_LEVEL`：Android API level，默认 `21`
 - `ANDROID_NDK_HOST_TAG`：NDK 主机目录，默认自动识别 macOS/Linux
-- `JAVA_PKG`：生成 Java 包名前缀，默认 `com.github.embermoth`
+- `JAVA_PKG`：生成 Java 包名前缀，默认 `com.hertanetwork`
 - `AAR_NAME`：输出 AAR 文件名，默认 `libclash.aar`
 - `GOMOBILE_TARGET`：gomobile target，默认 `android/arm,android/arm64,android/amd64`
 - `GO_TAGS`：Go build tags，默认 `foss,cmfa,with_low_memory,no_tailscale,no_fake_tcp`

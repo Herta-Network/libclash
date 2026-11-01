@@ -3,7 +3,7 @@
 本文档描述 `gomobile bind` 生成的 Android API。默认 Java 包名为：
 
 ```text
-com.github.embermoth.libclash
+com.hertanetwork.libclash
 ```
 
 主入口类：
@@ -15,11 +15,11 @@ Libclash
 ## 生成类
 
 ```text
-com.github.embermoth.libclash.Libclash
-com.github.embermoth.libclash.ContentCallback
-com.github.embermoth.libclash.FetchCallback
-com.github.embermoth.libclash.TunCallback
-com.github.embermoth.libclash.LogcatCallback
+com.hertanetwork.libclash.Libclash
+com.hertanetwork.libclash.ContentCallback
+com.hertanetwork.libclash.FetchCallback
+com.hertanetwork.libclash.TunCallback
+com.hertanetwork.libclash.LogcatCallback
 ```
 
 ## 回调接口

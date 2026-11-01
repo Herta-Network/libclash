@@ -110,7 +110,7 @@ dependencies {
 Android 侧应在使用核心前调用 `Libclash.init`：
 
 ```kotlin
-import com.github.embermoth.libclash.Libclash
+import com.hertanetwork.libclash.Libclash
 
 val home = filesDir.resolve("clash").apply { mkdirs() }.absolutePath
 val versionName = packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"
@@ -128,8 +128,8 @@ Libclash.init(home, versionName, gitVersion, sdkVersion)
 如果配置来源可能是 `content://`，需要设置 `ContentCallback`：
 
 ```kotlin
-import com.github.embermoth.libclash.ContentCallback
-import com.github.embermoth.libclash.Libclash
+import com.hertanetwork.libclash.ContentCallback
+import com.hertanetwork.libclash.Libclash
 
 Libclash.setContentCallback(object : ContentCallback {
     override fun open(url: String): Int {
@@ -175,7 +175,7 @@ if (loadError.isNotEmpty()) {
 Android VPN 服务创建 TUN fd 后，调用 `startTun`：
 
 ```kotlin
-import com.github.embermoth.libclash.TunCallback
+import com.hertanetwork.libclash.TunCallback
 
 val err = Libclash.startTun(
     fd,
@@ -230,7 +230,7 @@ Libclash.stopHttp()
 ## 日志订阅
 
 ```kotlin
-import com.github.embermoth.libclash.LogcatCallback
+import com.hertanetwork.libclash.LogcatCallback
 
 val id = Libclash.subscribeLogcat(object : LogcatCallback {
     override fun received(jsonPayload: String): Boolean {
